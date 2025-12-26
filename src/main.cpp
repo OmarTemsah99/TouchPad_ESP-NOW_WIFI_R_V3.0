@@ -71,8 +71,15 @@ void loop()
 {
   unsigned long currentMilis = millis();
 
-  // Handle WiFi connection and OTA
+  // Handle WiFi connection and OTA (always responsive)
   wifiManager.handleConnection();
+
+  // Skip other operations if firmware update is in progress to give update priority
+  if (WebHandlers::getUpdateStatus())
+  {
+    delay(10);  // Minimal delay to prevent watchdog
+    return;
+  }
 
   // Note: AsyncWebServer handles requests automatically, no need to call handleClient()
   // ESP-NOW callbacks are also handled automatically

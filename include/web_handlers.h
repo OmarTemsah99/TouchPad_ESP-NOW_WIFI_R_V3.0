@@ -12,12 +12,16 @@ private:
     AsyncWebServer *server;
     SensorManager *sensorManager;
     LEDController *ledController;
+    static bool isUpdating;
 
     String getContentType(String filename);
     void handleStaticFile(AsyncWebServerRequest *request);
 
 public:
     WebHandlers(AsyncWebServer *webServer, SensorManager *sensorMgr, LEDController *ledCtrl);
+
+    static bool getUpdateStatus() { return isUpdating; }
+    static void setUpdateStatus(bool status) { isUpdating = status; }
 
     void handleRoot(AsyncWebServerRequest *request);
     void handleSensorData(AsyncWebServerRequest *request);
