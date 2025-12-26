@@ -32,31 +32,7 @@ void WebHandlers::handleRoot(AsyncWebServerRequest *request)
     }
 }
 
-// Process sensor POST request
-void WebHandlers::handleSensorData(AsyncWebServerRequest *request)
-{
-    int touchValue = 0;
-    float batteryPercent = 0.0;
-    String clientId = "";
-
-    if (request->hasParam("touch", true))
-        touchValue = request->getParam("touch", true)->value().toInt();
-    if (request->hasParam("batteryPercent", true))
-        batteryPercent = request->getParam("batteryPercent", true)->value().toFloat();
-    if (request->hasParam("clientId", true))
-        clientId = request->getParam("clientId", true)->value();
-
-    sensorManager->updateSensorData(
-        request->client()->remoteIP().toString(),
-        clientId,
-        touchValue,
-        batteryPercent);
-
-    ledController->setSensorIndicator(touchValue);
-    request->send(200, F("text/plain"), F("OK"));
-}
-
-// Return sensor data in JSON
+// Return sensor data in JSON (data comes from ESP-NOW, not REST API)
 void WebHandlers::handleGetSensorData(AsyncWebServerRequest *request)
 {
     request->send(200, F("application/json"), sensorManager->getSensorDataJSON());
@@ -190,11 +166,21 @@ void WebHandlers::handleFirmware(AsyncWebServerRequest *request)
 void WebHandlers::handleFirmwareUpdate(AsyncWebServerRequest *request)
 {
     String filename = "";
-    if (request->hasParam("file", true))
+    // Support file passed as URL query (GET) or as POST body param
+    if (request->hasParam("file", false))
+        filename = request->getParam("file", false)->value();
+    else if (request->hasParam("file", true))
         filename = request->getParam("file", true)->value();
+
+    if (filename.length() == 0)
+    {
+        request->send(400, F("text/plain"), F("No firmware file specified"));
+        return;
+    }
 
     if (!filename.startsWith("/"))
         filename = "/" + filename;
+
     if (!filename.endsWith(".bin"))
     {
         request->send(400, F("text/plain"), F("Only .bin files allowed"));
@@ -210,27 +196,32 @@ void WebHandlers::handleFirmwareUpdate(AsyncWebServerRequest *request)
 
     if (!Update.begin(firmware.size()))
     {
-        request->send(500, F("text/plain"), F("Update begin failed"));
+        String err = "Update begin failed";
+        request->send(500, F("text/plain"), err);
         firmware.close();
         return;
     }
 
-    if (Update.writeStream(firmware) != firmware.size())
+    size_t written = Update.writeStream(firmware);
+    if (written != (size_t)firmware.size())
     {
-        request->send(500, F("text/plain"), F("Write failed"));
+        String err = "Write failed: written=" + String(written) + ", expected=" + String(firmware.size());
+        request->send(500, F("text/plain"), err);
         firmware.close();
         return;
     }
 
     if (!Update.end(true))
     {
-        request->send(500, F("text/plain"), Update.errorString());
+        String err = String("Update end failed: ") + Update.errorString();
+        request->send(500, F("text/plain"), err);
         firmware.close();
         return;
     }
 
     firmware.close();
-    request->send(200, F("text/plain"), F("Update successful. Rebooting..."));
+    // Return a success marker the web UI expects
+    request->send(200, F("text/plain"), F("SUCCESS: Update successful. Rebooting..."));
     delay(1000);
     ESP.restart();
 }
@@ -269,10 +260,8 @@ void WebHandlers::setupRoutes()
     server->on("/", HTTP_GET, [this](AsyncWebServerRequest *request)
                { handleRoot(request); });
 
-    // Sensor routes
-    server->on("/sensor", HTTP_POST, [this](AsyncWebServerRequest *request)
-               { handleSensorData(request); });
-
+    // Sensor routes (REST endpoint removed - data comes via ESP-NOW)
+    // The /sensorData GET endpoint remains for the web interface to fetch data
     server->on("/sensorData", HTTP_GET, [this](AsyncWebServerRequest *request)
                { handleGetSensorData(request); });
 

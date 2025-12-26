@@ -8,6 +8,7 @@
 #include "web_handlers.h"
 #include "wifi_manager.h"
 #include "filesystem_utils.h"
+#include "esp_now_manager.h"
 
 // Global objects
 LEDController ledController;
@@ -15,6 +16,7 @@ SensorManager sensorManager;
 AsyncWebServer server(WEB_SERVER_PORT);
 WebHandlers webHandlers(&server, &sensorManager, &ledController);
 WiFiManager wifiManager(&ledController);
+ESPNowManager espNowManager(&sensorManager);
 
 unsigned long lastSensorDataPrint = 0;
 const long printInterval = 500;
@@ -43,6 +45,16 @@ void setup()
   // Initialize WiFi
   if (wifiManager.init())
   {
+    // Initialize ESP-NOW after WiFi is connected
+    if (espNowManager.init())
+    {
+      Serial.println("ESP-NOW initialized successfully");
+    }
+    else
+    {
+      Serial.println("ESP-NOW initialization failed!");
+    }
+
     // Setup web server routes
     webHandlers.setupRoutes();
     server.begin();
@@ -63,6 +75,7 @@ void loop()
   wifiManager.handleConnection();
 
   // Note: AsyncWebServer handles requests automatically, no need to call handleClient()
+  // ESP-NOW callbacks are also handled automatically
 
   if (currentMilis - lastSensorDataPrint >= printInterval)
   {

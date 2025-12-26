@@ -13,6 +13,10 @@ extern const IPAddress GATEWAY;
 extern const IPAddress SUBNET;
 extern const IPAddress DNS_SERVER;
 
+// ESP-NOW Receiver MAC Address (this will be set as the receiver's MAC)
+// You can customize this to any valid MAC address you want
+#define RECEIVER_MAC_ADDRESS {0x24, 0x6F, 0x28, 0x12, 0x34, 0x56}
+
 // Hardware pin definitions
 #define RGB_LED_PIN 48
 #define NUM_PIXELS 1
