@@ -77,7 +77,7 @@ void loop()
   // Skip other operations if firmware update is in progress to give update priority
   if (WebHandlers::getUpdateStatus())
   {
-    delay(10);  // Minimal delay to prevent watchdog
+    delay(10); // Minimal delay to prevent watchdog
     return;
   }
 

@@ -92,7 +92,7 @@ void WebHandlers::handleFileUpload(AsyncWebServerRequest *request, String filena
         if (filename.endsWith(".bin"))
         {
             isUpdating = true;
-            ledController->setConnectingIndicator();  // Signal upload in progress
+            ledController->setConnectingIndicator(); // Signal upload in progress
         }
 
         String filepath = "/" + filename;
@@ -101,7 +101,7 @@ void WebHandlers::handleFileUpload(AsyncWebServerRequest *request, String filena
         {
             Serial.println(F("Failed to open file for writing"));
             if (filename.endsWith(".bin"))
-                isUpdating = false;  // Clear flag on error
+                isUpdating = false; // Clear flag on error
             return;
         }
     }
@@ -117,7 +117,7 @@ void WebHandlers::handleFileUpload(AsyncWebServerRequest *request, String filena
         {
             uploadFile.close();
             Serial.printf("UploadEnd: %s, %u bytes\n", filename.c_str(), index + len);
-            
+
             // Clear update flag when firmware upload completes
             if (filename.endsWith(".bin"))
                 isUpdating = false;
@@ -183,7 +183,7 @@ void WebHandlers::handleFirmwareUpdate(AsyncWebServerRequest *request)
 {
     // Set update flag to pause other operations during firmware update
     isUpdating = true;
-    ledController->setConnectingIndicator();  // Signal update in progress with LED
+    ledController->setConnectingIndicator(); // Signal update in progress with LED
 
     String filename = "";
     // Support file passed as URL query (GET) or as POST body param
@@ -194,7 +194,7 @@ void WebHandlers::handleFirmwareUpdate(AsyncWebServerRequest *request)
 
     if (filename.length() == 0)
     {
-        isUpdating = false;  // Clear flag on error
+        isUpdating = false; // Clear flag on error
         request->send(400, F("text/plain"), F("No firmware file specified"));
         return;
     }
@@ -204,7 +204,7 @@ void WebHandlers::handleFirmwareUpdate(AsyncWebServerRequest *request)
 
     if (!filename.endsWith(".bin"))
     {
-        isUpdating = false;  // Clear flag on error
+        isUpdating = false; // Clear flag on error
         request->send(400, F("text/plain"), F("Only .bin files allowed"));
         return;
     }
@@ -212,7 +212,7 @@ void WebHandlers::handleFirmwareUpdate(AsyncWebServerRequest *request)
     File firmware = SPIFFS.open(filename, "r");
     if (!firmware)
     {
-        isUpdating = false;  // Clear flag on error
+        isUpdating = false; // Clear flag on error
         request->send(404, F("text/plain"), F("Firmware file not found"));
         return;
     }
@@ -220,7 +220,7 @@ void WebHandlers::handleFirmwareUpdate(AsyncWebServerRequest *request)
     if (!Update.begin(firmware.size()))
     {
         String err = "Update begin failed";
-        isUpdating = false;  // Clear flag on error
+        isUpdating = false; // Clear flag on error
         request->send(500, F("text/plain"), err);
         firmware.close();
         return;
@@ -230,7 +230,7 @@ void WebHandlers::handleFirmwareUpdate(AsyncWebServerRequest *request)
     if (written != (size_t)firmware.size())
     {
         String err = "Write failed: written=" + String(written) + ", expected=" + String(firmware.size());
-        isUpdating = false;  // Clear flag on error
+        isUpdating = false; // Clear flag on error
         request->send(500, F("text/plain"), err);
         firmware.close();
         return;
@@ -239,7 +239,7 @@ void WebHandlers::handleFirmwareUpdate(AsyncWebServerRequest *request)
     if (!Update.end(true))
     {
         String err = String("Update end failed: ") + Update.errorString();
-        isUpdating = false;  // Clear flag on error
+        isUpdating = false; // Clear flag on error
         request->send(500, F("text/plain"), err);
         firmware.close();
         return;
