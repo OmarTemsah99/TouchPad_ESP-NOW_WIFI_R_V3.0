@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>File Manager</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="/styles.css" />
+    <script>
+      function deleteFile(filename) {
+        if (confirm("Are you sure you want to delete " + filename + "?")) {
+          fetch("/delete?file=" + encodeURIComponent(filename), {
+            method: "POST",
+          })
+            .then((response) => response.text())
+            .then((data) => {
+              alert(data);
+              location.reload();
+            })
+            .catch((error) => {
+              alert("Error: " + error);
+            });
+        }
+      }
+
+      function refreshFiles() {
+        location.reload();
+      }
+
+      function loadFileList() {
+        fetch("/list")
+          .then((response) => response.json())
+          .then((files) => {
+            const fileList = document.getElementById("fileList");
+            fileList.innerHTML = "";
+
+            if (files.length === 0) {
+              fileList.innerHTML =
+                '<div class="file-item">No files found in SPIFFS</div>';
+              return;
+            }
+
+            files.forEach((file) => {
+              const fileItem = document.createElement("div");
+              fileItem.className = "file-item";
+              fileItem.innerHTML = `
+                        <div>
+                            <span class="file-name">${file.name}</span><br>
+                            <span class="file-size">${file.size} bytes</span>
+                        </div>
+                        <button class="delete-btn" onclick="deleteFile('${file.name}')">Delete</button>
+                    `;
+              fileList.appendChild(fileItem);
+            });
+          })
+          .catch((error) => {
+            console.error("Error loading file list:", error);
+            document.getElementById("fileList").innerHTML =
+              '<div class="file-item">Error loading file list</div>';
+          });
+      }
+
+      // AJAX file upload with progress bar and file type restriction
+      function ajaxFileUpload(event) {
+        event.preventDefault();
+        const fileInput = document.getElementById("fileInput");
+        const file = fileInput.files[0];
+        if (!file) return;
+        // Only allow html, css, js
+        const allowed = ["text/html", "text/css", "application/javascript"];
+        const extAllowed = [".html", ".css", ".js"];
+        const fileName = file.name.toLowerCase();
+        if (!extAllowed.some((ext) => fileName.endsWith(ext))) {
+          document.getElementById("uploadStatus").style.color = "red";
+          document.getElementById("uploadStatus").innerText =
+            "Only .html, .css, .js files are allowed.";
+          return;
+        }
+        const formData = new FormData();
+        formData.append("upload", file);
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", "/upload", true);
+        xhr.upload.onprogress = function (e) {
+          if (e.lengthComputable) {
+            const percent = Math.round((e.loaded / e.total) * 100);
+            document.getElementById("progressBar").style.width = percent + "%";
+            document.getElementById("progressBar").innerText = percent + "%";
+          }
+        };
+        xhr.onload = function () {
+          if (xhr.status === 200) {
+            let resp = {};
+            try {
+              resp = JSON.parse(xhr.responseText);
+            } catch {}
+            document.getElementById("uploadStatus").style.color = resp.success
+              ? "green"
+              : "red";
+            document.getElementById("uploadStatus").innerText =
+              resp.message || xhr.responseText;
+            if (resp.success) {
+              setTimeout(() => {
+                document.getElementById("progressBar").style.width = "0%";
+                loadFileList();
+                setTimeout(() => {
+                  document.getElementById("uploadStatus").innerText = "";
+                }, 2000);
+              }, 1000);
+            }
+          } else {
+            document.getElementById("uploadStatus").style.color = "red";
+            document.getElementById("uploadStatus").innerText =
+              "Upload failed.";
+          }
+        };
+        xhr.onerror = function () {
+          document.getElementById("uploadStatus").style.color = "red";
+          document.getElementById("uploadStatus").innerText = "Upload error.";
+        };
+        document.getElementById("uploadStatus").style.color = "orange";
+        document.getElementById("uploadStatus").innerText = "Uploading...";
+        xhr.send(formData);
+      }
+
+      // Load file list when page loads
+      window.addEventListener("load", loadFileList);
+    </script>
+  </head>
+  <body>
+    <div class="container">
+      <h2>ESP32 File Manager</h2>
+
+      <div class="upload-form">
+        <h3>Upload New File</h3>
+        <form id="fileUploadForm" enctype="multipart/form-data">
+          <input
+            type="file"
+            id="fileInput"
+            name="upload"
+            accept=".html,.css,.js"
+            required />
+          <input type="submit" value="Upload File" />
+        </form>
+        <div class="progress">
+          <div id="progressBar" class="progress-bar"></div>
+        </div>
+        <div id="uploadStatus"></div>
+      </div>
+
+      <button class="refresh-btn" onclick="refreshFiles()">
+        Refresh File List
+      </button>
+
+      <h3>Current Files in SPIFFS:</h3>
+      <div class="file-list">
+        <div id="fileList">Loading files...</div>
+      </div>
+
+      <br />
+      <a href="/" class="back-btn">Back to Main Page</a>
+    </div>
+    <script>
+      document
+        .getElementById("fileUploadForm")
+        .addEventListener("submit", ajaxFileUpload);
+    </script>
+  </body>
+</html>

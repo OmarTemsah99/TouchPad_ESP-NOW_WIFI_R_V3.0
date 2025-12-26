@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Sensor Data</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="/styles.css" />
+    <script>
+      // Polling config
+      const FETCH_TIMEOUT = 500; // ms, abort fetches that take longer than this
+      const POLL_INTERVAL = 1000; // ms between polls (starts after previous finishes)
+
+      let isFetching = false; // prevents overlapping requests
+      const sensorElements = new Map(); // map ip -> element to update incrementally
+
+      // Helper to perform fetch with timeout using AbortController
+      function fetchWithTimeout(url, timeout) {
+        const controller = new AbortController();
+        const signal = controller.signal;
+        const timeoutId = setTimeout(() => controller.abort(), timeout);
+        return fetch(url, { signal })
+          .then((res) => {
+            clearTimeout(timeoutId);
+            return res;
+          })
+          .catch((err) => {
+            clearTimeout(timeoutId);
+            throw err;
+          });
+      }
+
+      async function loadSensorData() {
+        if (isFetching) {
+          // A fetch is already in progress; skip this iteration. Next poll is scheduled when current finishes.
+          return;
+        }
+        isFetching = true;
+        const container = document.getElementById("sensorDataContainer");
+        try {
+          const response = await fetchWithTimeout("/sensorData", FETCH_TIMEOUT);
+          if (!response.ok)
+            throw new Error("Network response not ok: " + response.status);
+          const data = await response.json();
+
+          if (
+            !data ||
+            typeof data !== "object" ||
+            Object.keys(data).length === 0
+          ) {
+            container.innerHTML =
+              '<div class="info">No sensor data available.</div>';
+            sensorElements.clear();
+          } else {
+            // Update or create elements incrementally to reduce flicker
+            const seen = new Set();
+            // Preserve insertion order by iterating object entries
+            for (const [ip, sensorInfo] of Object.entries(data)) {
+              seen.add(ip);
+              let div = sensorElements.get(ip);
+              if (!div) {
+                div = document.createElement("div");
+                div.className = "sensor";
+                sensorElements.set(ip, div);
+                container.appendChild(div);
+              }
+              // Update content (small, targeted innerHTML replacement)
+              div.innerHTML = `
+                <strong>IP Address:</strong> ${ip}<br>
+                <strong>Client ID:</strong> ${sensorInfo.clientId || ""}<br>
+                <strong>Touch Value:</strong> ${
+                  typeof sensorInfo.touch !== "undefined"
+                    ? sensorInfo.touch
+                    : ""
+                }<br>
+                <strong>Battery %:</strong> ${
+                  typeof sensorInfo.batteryPercent !== "undefined"
+                    ? sensorInfo.batteryPercent
+                    : ""
+                }%<br>
+              `;
+            }
+
+            // Remove stale elements that are no longer present in the data
+            for (const ip of Array.from(sensorElements.keys())) {
+              if (!seen.has(ip)) {
+                const el = sensorElements.get(ip);
+                if (el && el.parentNode) el.parentNode.removeChild(el);
+                sensorElements.delete(ip);
+              }
+            }
+          }
+        } catch (err) {
+          // Keep existing elements (if any) and show an error message instead of clearing everything
+          if (!sensorElements.size) {
+            container.innerHTML =
+              '<div class="info">Error loading sensor data.</div>';
+          } else {
+            // Optionally append a small transient error notice
+            // (to avoid removing current view which would cause flicker)
+            const errDiv = document.createElement("div");
+            errDiv.className = "info";
+            errDiv.textContent =
+              "Error loading sensor data (showing last known).";
+            // replace previous error notice if present
+            const prev = container.querySelector(".info.err-notice");
+            if (prev) prev.remove();
+            errDiv.classList.add("err-notice");
+            container.insertBefore(errDiv, container.firstChild);
+            // remove the notice after a short time
+            setTimeout(() => {
+              if (errDiv.parentNode) errDiv.parentNode.removeChild(errDiv);
+            }, 3000);
+          }
+        } finally {
+          isFetching = false;
+          // Schedule next poll only after this one finishes to avoid overlap
+          setTimeout(loadSensorData, POLL_INTERVAL);
+        }
+      }
+
+      window.addEventListener("load", () => {
+        loadSensorData();
+      });
+    </script>
+  </head>
+  <body>
+    <div class="container">
+      <h2>Sensor Data</h2>
+      <div id="sensorDataContainer">Loading...</div>
+      <a href="/" class="back-btn">Back to Main Page</a>
+    </div>
+  </body>
+</html>

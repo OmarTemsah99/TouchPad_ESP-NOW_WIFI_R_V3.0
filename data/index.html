@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>ESP32 Sensor Monitor</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Link to external stylesheet -->
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <h1>ESP32 Sensor Monitor</h1>
+
+    <div class="container controls">
+      <h2>Device Management</h2>
+      <div class="info">
+        <strong>Available Functions:</strong><br />
+        Upload files to SPIFFS filesystem<br />
+        Update device firmware (.bin files)<br />
+        Monitor connected sensors in real-time
+      </div>
+      <a href="/upload" class="btn btn-upload">File Upload</a>
+      <a href="/firmware" class="btn btn-firmware">Firmware Update</a>
+      <a href="/sensorpage" class="btn">Sensor Data Page</a>
+    </div>
+
+    <script>
+      // Sensor data section removed for separation of concern
+    </script>
+  </body>
+</html>
